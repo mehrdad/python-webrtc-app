@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python WebRTC Video Chat</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            text-align: center;
+        }
+        #videos { 
+            display: flex; 
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        video { 
+            width: 45%; 
+            background-color: #f0f0f0; 
+        }
+        #roomSetup {
+            margin-bottom: 20px;
+        }
+        #messageContainer { 
+            height: 200px; 
+            border: 1px solid #ccc; 
+            overflow-y: scroll; 
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #messageInput {
+            width: 80%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        @media (max-width: 600px) {
+            video {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            #messageInput {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>WebRTC Video Chat</h1>
+    
+    <div id="roomSetup">
+        <input type="text" id="roomId" placeholder="Enter Room ID" />
+        <button onclick="joinRoom()">Join Room</button>
+    </div>
+
+    <div id="videoChat" style="display:none;">
+        <div id="videos">
+            <video id="localVideo" autoplay playsinline></video>
+            <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+
+        <div id="chat">
+            <div id="messageContainer"></div>
+            <input type="text" id="messageInput" placeholder="Type a message..." />
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="leaveRoom()">Leave Room</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const messageContainer = document.getElementById('messageContainer');
+        const messageInput = document.getElementById('messageInput');
+        const roomSetup = document.getElementById('roomSetup');
+        const videoChat = document.getElementById('videoChat');
+
+        let localStream;
+        let peerConnection;
+        let dataChannel;
+        let roomId;
+
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Function to join a room
+        async function joinRoom() {
+            roomId = document.getElementById('roomId').value;
+            if (!roomId) {
+                alert('Please enter a room ID');
+                return;
+            }
+
+            try {
+                // Get local media stream
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+                localVideo.srcObject = localStream;
+
+                roomSetup.style.display = 'none';
+                videoChat.style.display = 'block';
+
+                // Join room via socket
+                socket.emit('create or join', roomId);
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+                alert('Could not access your camera. Please check your device permissions.');
+            }
+        }
+
+        // Handle incoming signaling messages
+        socket.on('signal', (data) => {
+            if (data.from !== socket.id) {
+                // Handle ICE candidates and session descriptions here
+            }
+        });
+
+        // Send message in the chat
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('message', { roomId: roomId, message });
+                messageInput.value = '';
+                appendMessage('You: ' + message);
+            }
+        }
+
+        // Append message to the message container
+        function appendMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            messageContainer.appendChild(messageElement);
+            messageContainer.scrollTop = messageContainer.scrollHeight; // Scroll to the bottom
+        }
+
+        // Leave room and reset state
+        function leaveRoom() {
+            socket.emit('disconnect');
+            peerConnection.close();
+            roomSetup.style.display = 'block';
+            videoChat.style.display = 'none';
+        }
+
+        // Optional: You can add signaling and WebRTC connection logic here
+
+    </script>
+</body>
+</html>
