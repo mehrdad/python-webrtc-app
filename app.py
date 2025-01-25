@@ -22,27 +22,21 @@ def index():
 
 @socketio.on('create or join')
 def on_create_or_join(room_id):
-    """Handle requests to create or join a room."""
-    logging.info(f"User {request.sid} requested to join or create room: {room_id}")
-
-    if room_id not in rooms:
-        rooms[room_id] = set()
-        logging.info(f"Room {room_id} created.")
-
-    if len(rooms[room_id]) < 2:
-        join_room(room_id)
-        rooms[room_id].add(request.sid)
-        logging.info(f"User {request.sid} joined room {room_id}. Current members: {rooms[room_id]}")
-
-        # Notify others in the room
-        other_users = list(rooms[room_id] - {request.sid})
-        if other_users:
-            emit('room members', other_users, room=request.sid)
-            emit('new peer', request.sid, room=other_users[0])
-            logging.debug(f"Notified existing members {other_users} about new peer {request.sid}.")
-    else:
-        emit('room full')
-        logging.warning(f"Room {room_id} is full. User {request.sid} could not join.")
+    try:
+        if room_id not in rooms:
+            rooms[room_id] = set()
+            logging.info(f"Created a new room: {room_id}")
+        if len(rooms[room_id]) < 2:
+            join_room(room_id)
+            rooms[room_id].add(request.sid)
+            emit('joined room', {'room': room_id})
+            logging.info(f"User {request.sid} joined room {room_id}")
+        else:
+            emit('room full')
+            logging.warning(f"Room {room_id} is full.")
+    except Exception as e:
+        logging.error(f"Error during room join: {str(e)}")
+        emit('error', {'message': 'An error occurred.'})
 
 @socketio.on('signal')
 def on_signal(data):
